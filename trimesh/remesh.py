@@ -63,8 +63,9 @@ def subdivide(vertices,
     face_max_edge = face_edges[np.arange(len(face_edges_argmax)), face_edges_argmax]  # (F,2)
 
     # subdivide max_edge
-    mid = vertices[face_max_edge].mean(axis=1)
-    mid_idx = np.arange(len(mid)) + len(vertices)
+    unique, inverse = grouping.unique_rows(face_max_edge)
+    mid = vertices[face_max_edge[unique]].mean(axis=1)
+    mid_idx = inverse + len(vertices)
 
     # find another vertex of triangle out of max edge
     vertex_in_edge = np.zeros_like(faces_subset, dtype=bool)
@@ -92,8 +93,7 @@ def subdivide(vertices,
     if vertex_attributes is not None:
         new_attributes = {}
         for key, values in vertex_attributes.items():
-            attr_tris = values[faces_subset]
-            attr_mid = attr_tris[face_max_edge].mean(axis=1)
+            attr_mid = values[face_max_edge[unique]].mean(axis=1)
             new_attributes[key] = np.vstack((
                 values, attr_mid))
         return new_vertices, new_faces, new_attributes

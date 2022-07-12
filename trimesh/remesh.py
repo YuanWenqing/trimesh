@@ -54,32 +54,38 @@ def subdivide(vertices,
         face_index = np.asanyarray(face_index)
 
     # the (c, 3) int array of vertex indices
-    faces_subset = faces[face_index]
+    faces_subset = faces[face_index]  # (F,3)
 
-    # find the unique edges of our faces subset
-    edges = np.sort(faces_to_edges(faces_subset), axis=1)
-    unique, inverse = grouping.unique_rows(edges)
-    # then only produce one midpoint per unique edge
-    mid = vertices[edges[unique]].mean(axis=1)
-    mid_idx = inverse.reshape((-1, 3)) + len(vertices)
+    # find max edge of each face
+    face_edges = faces_subset[:, [0, 1, 1, 2, 2, 0]].reshape((-1, 3, 2))  # (F,3,2)
+    face_edges_length = ((np.diff(vertices[face_edges], axis=2) ** 2).sum(axis=3) ** 0.5).reshape((-1, 3))  # (F,3)
+    face_edges_argmax = np.argmax(face_edges_length, axis=1)  # (F,)
+    face_max_edge = face_edges[np.arange(len(face_edges_argmax)), face_edges_argmax]  # (F,2)
+
+    # subdivide max_edge
+    mid = vertices[face_max_edge].mean(axis=1)
+    mid_idx = np.arange(len(mid)) + len(vertices)
+
+    # find another vertex of triangle out of max edge
+    vertex_in_edge = np.zeros_like(faces_subset, dtype=bool)
+    for i in range(faces_subset.shape[1]):
+        vertex_in_edge[:, i] = np.logical_or(faces_subset[:, i] == face_max_edge[:, 0],
+                                             faces_subset[:, i] == face_max_edge[:, 1])
+    another_vertices = faces_subset[np.logical_not(vertex_in_edge)]
 
     # the new faces_subset with correct winding
-    f = np.column_stack([faces_subset[:, 0],
-                         mid_idx[:, 0],
-                         mid_idx[:, 2],
-                         mid_idx[:, 0],
-                         faces_subset[:, 1],
-                         mid_idx[:, 1],
-                         mid_idx[:, 2],
-                         mid_idx[:, 1],
-                         faces_subset[:, 2],
-                         mid_idx[:, 0],
-                         mid_idx[:, 1],
-                         mid_idx[:, 2]]).reshape((-1, 3))
-    # add the 3 new faces_subset per old face
-    new_faces = np.vstack((faces, f[len(face_index):]))
+    f = np.column_stack([another_vertices,
+                         face_max_edge[:, 0],
+                         mid_idx,
+
+                         mid_idx,
+                         face_max_edge[:, 1],
+                         another_vertices,
+                         ]).reshape((-1, 3))  # (2F,3)
+    # add new faces_subset per old face
+    new_faces = np.vstack((faces, f[1::2]))
     # replace the old face with a smaller face
-    new_faces[face_index] = f[:len(face_index)]
+    new_faces[face_index] = f[0::2]
 
     new_vertices = np.vstack((vertices, mid))
 
@@ -87,18 +93,13 @@ def subdivide(vertices,
         new_attributes = {}
         for key, values in vertex_attributes.items():
             attr_tris = values[faces_subset]
-            attr_mid = np.vstack([
-                attr_tris[:, g, :].mean(axis=1)
-                for g in [[0, 1],
-                          [1, 2],
-                          [2, 0]]])
-            attr_mid = attr_mid[unique]
+            attr_mid = attr_tris[face_max_edge].mean(axis=1)
             new_attributes[key] = np.vstack((
                 values, attr_mid))
         return new_vertices, new_faces, new_attributes
 
     if return_index:
-        index_dict = {f: [f] + [len(faces) + 3 * fidx + i for i in range(3)]
+        index_dict = {f: [f, len(faces) + fidx]
                       for fidx, f in enumerate(face_index)}
         return new_vertices, new_faces, index_dict
 
@@ -177,7 +178,7 @@ def subdivide_to_size(vertices,
         if not too_long.any():
             break
 
-        current_index = np.tile(current_index[too_long], (4, 1)).T.ravel()
+        current_index = np.tile(current_index[too_long], (2, 1)).T.ravel()
         # run subdivision again
         (current_vertices,
          current_faces) = subdivide(current_vertices,

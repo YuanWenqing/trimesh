@@ -18,7 +18,7 @@ class SubDivideTest(g.unittest.TestCase):
             assert len(sub.faces) > len(m.faces)
 
             max_edge = m.scale / 50
-            sub, idx = m.subdivide_to_size(max_edge=max_edge, return_index=True)
+            sub, idx = m.subdivide_to_size(max_edge=max_edge, return_index=True, max_iter=20)
             assert g.np.allclose(m.area, sub.area)
             edge_len = (g.np.diff(sub.vertices[sub.edges_unique],
                                   axis=1).reshape((-1, 3))**2).sum(axis=1)**.5
@@ -51,6 +51,7 @@ class SubDivideTest(g.unittest.TestCase):
                 vertices=m.vertices,
                 faces=m.faces,
                 max_edge=max_edge,
+                max_iter=20,
                 return_index=True)
             ms = g.trimesh.Trimesh(vertices=v, faces=f)
             assert g.np.allclose(m.area, ms.area)
@@ -91,7 +92,7 @@ class SubDivideTest(g.unittest.TestCase):
             assert g.np.isclose(m.volume, s.volume)
 
             max_edge = m.scale / 50
-            s = m.subdivide_to_size(max_edge=max_edge)
+            s = m.subdivide_to_size(max_edge=max_edge, max_iter=20)
             # shouldn't have subdivided in-place
             assert len(s.faces) > len(m.faces)
             # area should be the same
@@ -125,7 +126,7 @@ class SubDivideTest(g.unittest.TestCase):
         assert sv.ptp(axis=1).mean(axis=0).max() < 0.1
 
         max_edge = m.scale / 50
-        s = m.subdivide_to_size(max_edge=max_edge)
+        s = m.subdivide_to_size(max_edge=max_edge, max_iter=20)
 
         # shouldn't have changed source mesh
         assert m.vertices.shape == shape
@@ -152,7 +153,7 @@ class SubDivideTest(g.unittest.TestCase):
             # this shouldn't have worked
             pass
         # this should be enough iterations
-        r = m.subdivide_to_size(0.01, max_iter=10)
+        r = m.subdivide_to_size(0.01, max_iter=20)
         assert r.is_watertight
 
 

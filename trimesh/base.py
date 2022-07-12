@@ -1949,7 +1949,7 @@ class Trimesh(Geometry3D):
             process=False)
         return result
 
-    def subdivide_to_size(self, max_edge, max_iter=10, return_index=False):
+    def subdivide_to_size(self, max_edge, max_iter=20, return_index=False):
         """
         Subdivide a mesh until every edge is shorter than a
         specified length.
